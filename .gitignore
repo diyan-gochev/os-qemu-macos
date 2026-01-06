@@ -1,0 +1,88 @@
+###############################################################################
+# macOS-Dev (QEMU/KVM + Clover) - ignore runtime artifacts, images, and downloads
+# This DOES NOT delete anything; it only prevents committing large/private files.
+###############################################################################
+
+# --- QEMU/VM runtime artifacts ---
+logs/
+tmp/
+var/
+
+# If you keep placeholder files to preserve empty dirs, allow them:
+!logs/.gitkeep
+!tmp/.gitkeep
+!var/.gitkeep
+
+# QEMU monitor/serial artifacts if they appear outside logs/
+*.log
+*.trace
+*.pid
+*.sock
+*.socket
+
+# --- Disk images (large / mutable) ---
+*.qcow2
+*.raw
+*.img
+*.iso
+*.dmg
+*.vmdk
+*.vhd
+*.vhdx
+
+# Explicitly ignore your known disk artifacts (redundant but clear)
+var/ESP.qcow2
+var/MyDisk.qcow2
+share/BaseSystem.dmg
+share/BaseSystem.img
+share/BaseSystem.chunklist
+
+# --- Mount points created by your script ---
+tmp/efi-mount/
+tmp/esp-mount/
+tmp/esp-validate/
+tmp/esp-validate/**
+tmp/efi-mount/**
+
+# --- Firmware (downloaded / machine-specific NVRAM) ---
+firmware/*.fd
+var/OVMF_VARS*.fd
+var/OVMF_VARS*.bak.*
+
+# Keep firmware directory itself (optional placeholder)
+!firmware/.gitkeep
+
+# --- Downloaded vendor/tooling (reproducible via os.sh install) ---
+lib/clover/
+lib/macrecovery/
+
+# Keep lib directory if you want, but ignore heavy vendor content
+!lib/.gitkeep
+
+# --- Share directory contains Apple recovery artifacts (size + licensing) ---
+share/
+!share/.gitkeep
+!share/README.md
+
+# --- Local config/secrets (recommended) ---
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.crt
+
+# --- Editor/OS noise ---
+*~
+*.swp
+*.swo
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# --- Python bytecode (macrecovery etc.) ---
+__pycache__/
+*.pyc
+*.pyo
+
