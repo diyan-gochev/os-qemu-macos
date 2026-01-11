@@ -316,27 +316,53 @@ cmd_install() {
         sudo cp "$LIB_DIR/clover/CloverV2/EFI/BOOT/BOOTX64.efi" "$TMP_DIR/esp-mount/EFI/BOOT/"
         sudo cp "$LIB_DIR/clover/CloverV2/EFI/CLOVER/CLOVERX64.efi" "$TMP_DIR/esp-mount/EFI/CLOVER/"
 
-	# Copy all UEFI firmware drivers from Clover package into ESP
+        # Copy ONLY required UEFI firmware drivers from Clover package
 	sudo mkdir -p "$TMP_DIR/esp-mount/EFI/CLOVER/drivers/UEFI"
 
-        # Prefer UEFI drivers tree if present (most common in modern Clover zips)
-	if [[ -d "$LIB_DIR/clover/CloverV2/EFI/CLOVER/drivers/off/UEFI" ]]; then
-  	   sudo find "$LIB_DIR/clover/CloverV2/EFI/CLOVER/drivers/off/UEFI" \
-    	     -type f -name '*.efi' -print \
-    	     -exec sudo cp -v {} "$TMP_DIR/esp-mount/EFI/CLOVER/drivers/UEFI/" \;
-	else
-	   # Fallback: older packages may ship top-level drivers under drivers/off/
-  	   shopt -s nullglob
-  	   drivers=( "$LIB_DIR/clover/CloverV2/EFI/CLOVER/drivers/off/"*.efi )
-  	   shopt -u nullglob
+	# List of required drivers for macOS Sequoia/Tahoe
+	REQUIRED_DRIVERS=(
+	    "off/UEFI/MemoryFix/OpenRuntime.efi"
+	    "off/UEFI/Other/AudioDxe.efi"
+	    "off/UEFI/FileSystem/VBoxHfs.efi"
+	    "off/UEFI/FileSystem/ApfsDriverLoader.efi"
+	)
 
-  	   if ((${#drivers[@]})); then
-    	      sudo cp -v "${drivers[@]}" "$TMP_DIR/esp-mount/EFI/CLOVER/drivers/UEFI/"
-  	   else
-    	      warn "No Clover drivers found under CloverV2/EFI/CLOVER/drivers/off/"
-  	   fi
-        fi
-        
+	log "Copying required Clover drivers..."
+
+	# Driver source location
+	DRIVER_SOURCE="$LIB_DIR/clover/CloverV2/EFI/CLOVER/drivers"
+
+	COPIED_COUNT=0
+	MISSING_DRIVERS=()
+
+	# Copy each driver (don't exit on error yet)
+	for driver_name in "${REQUIRED_DRIVERS[@]}"; do
+	    driver_path="$DRIVER_SOURCE/$driver_name"
+	    if [[ -f "$driver_path" ]]; then
+		sudo cp -v "$driver_path" "$TMP_DIR/esp-mount/EFI/CLOVER/drivers/UEFI/"
+		log "✓ Copied: $driver_name"
+		((++COPIED_COUNT))
+	    else
+		log "✗ Missing: $driver_name"
+		MISSING_DRIVERS+=("$driver_name")
+	    fi
+	done
+
+	# Check results and fail if any drivers are missing
+	if [[ ${#MISSING_DRIVERS[@]} -gt 0 ]]; then
+	    log ""
+	    log "ERROR: Missing ${#MISSING_DRIVERS[@]} required driver(s):"
+	    for missing in "${MISSING_DRIVERS[@]}"; do
+		log "  - $missing"
+	    done
+	    log ""
+	    
+	    # Call cleanup which will handle exit
+	    cleanup_failed_esp
+	fi
+
+	log "✓ Successfully copied all $COPIED_COUNT essential drivers"
+		
         if [[ -d "$LIB_DIR/clover/CloverV2/EFI/CLOVER/themes" ]]; then
             sudo cp -r "$LIB_DIR/clover/CloverV2/EFI/CLOVER/themes" "$TMP_DIR/esp-mount/EFI/CLOVER/"
         fi
@@ -347,7 +373,7 @@ cmd_install() {
         else
             warn "config.plist not found, Clover will use defaults"
         fi
-        
+
         log "Syncing and unmounting..."
         sudo sync
         sleep 1
@@ -520,24 +546,24 @@ cmd_start() {
       -name "macOS-Tahoe-VM" \
       -enable-kvm \
       -machine q35,accel=kvm,i8042=off,vmport=off \
-      -no-reboot \
-      -cpu Penryn,vendor=GenuineIntel,kvm=on,+sse3,+sse4.2,+aes,+xsave,+xsaveopt,+avx,+avx2,+xsavec,+xgetbv1,+invtsc \
-      -smp 8,cores=4,threads=2 \
+      -cpu Cascadelake-Server-v5,vendor=GenuineIntel,kvm=on,vmware-cpuid-freq=on,+invtsc,+avx512f,+avx512dq,+avx512cd,+avx512bw,+avx512vl,+avx512vnni,-pcid,-ibrs-all \
+      -smp cores=4,threads=1,sockets=1 \
       -m 16G \
       -device isa-applesmc,osk="ourhardworkbythesewordsguardedpleasedontsteal(c)AppleComputerInc" \
-      -smbios type=2 \
+      -smbios type=1,manufacturer="Apple Inc.",product="MacPro7,,1",version="1.0",serial="F5KF2NZWP7QM",uuid="c7272847-a46d-4ffc-b8a6-003bfd893b7c",sku="Mac-27AD2F918AE68F61",family="Mac Pro" \
+      -smbios type=2,manufacturer="Apple Inc.",product="Mac-27AD2F918AE68F61",version="MacPro7,,1",serial="F5K101500GUK3F71M",asset="Mac-Pro-Aluminum" \
       -drive if=pflash,format=raw,readonly=on,file="$OVMF_CODE" \
       -drive if=pflash,format=raw,file="$OVMF_VARS" \
       -vga none \
-      -device VGA,vgamem_mb=128 \
+      -device VGA,xres=2560,yres="1440" \
       -display gtk,gl=off,zoom-to-fit=off \
       -device ich9-ahci,id=sata \
       -drive id=ESP,if=none,format=qcow2,file="$ESP_DISK",cache=none,aio=native \
-      -device ide-hd,bus=sata.0,drive=ESP,bootindex=1 \
+      -device ide-hd,bus=sata.0,drive=ESP,bootindex=2 \
       -drive id=Recovery,if=none,format=raw,file="$RECOVERY_IMG",snapshot=on,cache=none,aio=native \
-      -device ide-hd,bus=sata.1,drive=Recovery \
+      -device ide-hd,bus=sata.1,drive=Recovery,bootindex=1 \
       -drive id=MacHDD,if=none,format=qcow2,file="$SYSTEM_DISK",cache=none,aio=native,discard=unmap,detect-zeroes=unmap \
-      -device ide-hd,bus=sata.2,drive=MacHDD,bootindex=2 \
+      -device ide-hd,bus=sata.2,drive=MacHDD,bootindex=3 \
       -device ich9-usb-ehci1,id=usb \
       -device ich9-usb-uhci1,masterbus=usb.0,firstport=0,multifunction=on \
       -device ich9-usb-uhci2,masterbus=usb.0,firstport=2 \
@@ -549,9 +575,9 @@ cmd_start() {
       -device vmxnet3,netdev=net0,mac=52:54:00:c9:18:27 \
       -device virtio-rng-pci \
       -rtc base=utc,clock=host \
-      -global kvm-pit.lost_tick_policy=discard \
       -serial file:"$SERIAL_LOG" \
       -monitor stdio \
+      -global kvm-pit.lost_tick_policy=discard \
       -global ICH9-LPC.disable_s3=1 \
       -global ICH9-LPC.disable_s4=1 \
       -D "$QEMU_LOG" \

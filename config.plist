@@ -35,23 +35,29 @@ cat > ~/vmware/macOS-Dev/config.plist << 'EOF'
 			<true/>
 		</dict>
 		<key>ScreenResolution</key>
-		<string>1024x768</string>
+		<string>1280x720</string>
 		<key>Theme</key>
 		<string>embedded</string>
 	</dict>
 	<key>RtVariables</key>
 	<dict>
 		<key>BooterConfig</key>
-		<string>0x28</string>
+		<string>2560x1440</string>
 		<key>CsrActiveConfig</key>
 		<string>0x3</string>
 	</dict>
 	<key>SMBIOS</key>
-	<dict>
-		<key>Trust</key>
-		<false/>
-		<key>ProductName</key>
-		<string>iMacPro1,1</string>
+		<dict>
+    		<key>Trust</key>
+    		<false/>
+    		<key>ProductName</key>
+    		<string>MacPro7,1</string>
+    		<key>SerialNumber</key>
+    		<string>F5KF2NZWP7QM</string>
+    		<key>BoardSerialNumber</key>
+    		<string>F5K101500GUK3F71M</string>
+    		<key>SmUUID</key>
+    		<string>c7272847-a46d-4ffc-b8a6-003bfd893b7c</string>
 	</dict>
 	<key>SystemParameters</key>
 	<dict>
@@ -60,6 +66,12 @@ cat > ~/vmware/macOS-Dev/config.plist << 'EOF'
 		<key>InjectSystemID</key>
 		<true/>
 	</dict>
-</dict>
+	<key>KernelAndKextPatches</key>
+	<dict>
+    		<key>AppleIntelCPUPM</key>
+    		<false/>
+    		<key>KernelPm</key>
+    		<false/>
+	</dict>
 </plist>
 EOF
